@@ -2578,173 +2578,6 @@ var AsciinemaPlayer = (function (exports) {
                           return exports$1;
                       };
 
-  // Efficient array transformations without intermediate array objects.
-  // Inspired by Clojure's transducers and Elixir's streams.
-  var Stream = /*#__PURE__*/function (_Symbol$iterator) {
-    function Stream(input, xfs) {
-      _classCallCheck(this, Stream);
-
-      this.input = input;
-      this.xfs = xfs !== null && xfs !== void 0 ? xfs : [];
-    }
-
-    _createClass(Stream, [{
-      key: "map",
-      value: function map(f) {
-        return this.transform(Map$1(f));
-      }
-    }, {
-      key: "flatMap",
-      value: function flatMap(f) {
-        return this.transform(FlatMap(f));
-      }
-    }, {
-      key: "filter",
-      value: function filter(f) {
-        return this.transform(Filter(f));
-      }
-    }, {
-      key: "take",
-      value: function take(n) {
-        return this.transform(Take(n));
-      }
-    }, {
-      key: "drop",
-      value: function drop(n) {
-        return this.transform(Drop(n));
-      }
-    }, {
-      key: "transform",
-      value: function transform(f) {
-        return new Stream(this.input, this.xfs.concat([f]));
-      }
-    }, {
-      key: "toArray",
-      value: function toArray() {
-        return Array.from(this);
-      }
-    }, {
-      key: _Symbol$iterator,
-      value: function value() {
-        var _this = this;
-
-        var i = 0;
-        var v = 0;
-        var values = [];
-        var flushed = false;
-        var xf = compose(this.xfs, function (val) {
-          return values.push(val);
-        });
-        return {
-          next: function next() {
-            if (v === values.length) {
-              values = [];
-              v = 0;
-            }
-
-            while (values.length === 0 && i < _this.input.length) {
-              xf.step(_this.input[i++]);
-            }
-
-            if (values.length === 0 && !flushed) {
-              xf.flush();
-              flushed = true;
-            }
-
-            if (values.length > 0) {
-              return {
-                done: false,
-                value: values[v++]
-              };
-            } else {
-              return {
-                done: true
-              };
-            }
-          }
-        };
-      }
-    }]);
-
-    return Stream;
-  }(Symbol.iterator);
-
-  function Map$1(f) {
-    return function (emit) {
-      return function (input) {
-        emit(f(input));
-      };
-    };
-  }
-
-  function FlatMap(f) {
-    return function (emit) {
-      return function (input) {
-        f(input).forEach(emit);
-      };
-    };
-  }
-
-  function Filter(f) {
-    return function (emit) {
-      return function (input) {
-        if (f(input)) {
-          emit(input);
-        }
-      };
-    };
-  }
-
-  function Take(n) {
-    var c = 0;
-    return function (emit) {
-      return function (input) {
-        if (c < n) {
-          emit(input);
-        }
-
-        c += 1;
-      };
-    };
-  }
-
-  function Drop(n) {
-    var c = 0;
-    return function (emit) {
-      return function (input) {
-        c += 1;
-
-        if (c > n) {
-          emit(input);
-        }
-      };
-    };
-  }
-
-  function compose(xfs, push) {
-    return xfs.reverse().reduce(function (next, curr) {
-      var xf = toXf(curr(next.step));
-      return {
-        step: xf.step,
-        flush: function flush() {
-          xf.flush();
-          next.flush();
-        }
-      };
-    }, toXf(push));
-  }
-
-  function toXf(xf) {
-    if (typeof xf === 'function') {
-      return {
-        step: xf,
-        flush: function flush() {}
-      };
-    } else {
-      return xf;
-    }
-  }
-
   function parseNpt(time) {
     if (typeof time === 'number') {
       return time;
@@ -2757,472 +2590,6 @@ var AsciinemaPlayer = (function (exports) {
     }
   }
 
-  function asciicast(url, _ref, _ref2) {
-    var feed = _ref.feed,
-        now = _ref.now,
-        setTimeout = _ref.setTimeout,
-        onFinish = _ref.onFinish;
-    var idleTimeLimit = _ref2.idleTimeLimit;
-    var cols;
-    var rows;
-    var frames;
-    var duration;
-    var timeoutId;
-    var nextFrameIndex = 0;
-    var elapsedVirtualTime = 0;
-    var startTime;
-    var pauseElapsedTime;
-
-    function load() {
-      return _load.apply(this, arguments);
-    }
-
-    function _load() {
-      _load = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee3() {
-        var res, _asciicast;
-
-        return regenerator.wrap(function _callee3$(_context3) {
-          while (1) {
-            switch (_context3.prev = _context3.next) {
-              case 0:
-                if (frames) {
-                  _context3.next = 13;
-                  break;
-                }
-
-                _context3.next = 3;
-                return fetch(url);
-
-              case 3:
-                res = _context3.sent;
-                _context3.t0 = parseAsciicast;
-                _context3.next = 7;
-                return res.text();
-
-              case 7:
-                _context3.t1 = _context3.sent;
-                _asciicast = (0, _context3.t0)(_context3.t1);
-                cols = _asciicast.cols;
-                rows = _asciicast.rows;
-                frames = prepareFrames(_asciicast.frames, idleTimeLimit !== null && idleTimeLimit !== void 0 ? idleTimeLimit : _asciicast.idleTimeLimit);
-                duration = frames[frames.length - 1][0];
-
-              case 13:
-              case "end":
-                return _context3.stop();
-            }
-          }
-        }, _callee3);
-      }));
-      return _load.apply(this, arguments);
-    }
-
-    function scheduleNextFrame() {
-      var nextFrame = frames[nextFrameIndex];
-
-      if (nextFrame) {
-        var t = nextFrame[0] * 1000;
-        var elapsedWallTime = now() - startTime;
-        var timeout = t - elapsedWallTime;
-
-        if (timeout < 0) {
-          timeout = 0;
-        }
-
-        timeoutId = setTimeout(runFrame, timeout);
-      } else {
-        timeoutId = null;
-        pauseElapsedTime = duration * 1000;
-        onFinish();
-      }
-    }
-
-    function runFrame() {
-      var frame = frames[nextFrameIndex];
-      var elapsedWallTime;
-
-      do {
-        feed(frame[1]);
-        elapsedVirtualTime = frame[0] * 1000;
-        frame = frames[++nextFrameIndex];
-        elapsedWallTime = now() - startTime;
-      } while (frame && elapsedWallTime > frame[0] * 1000);
-
-      scheduleNextFrame();
-    }
-
-    function pause() {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-      pauseElapsedTime = now() - startTime;
-    }
-
-    function resume() {
-      startTime = now() - pauseElapsedTime;
-      pauseElapsedTime = null;
-      scheduleNextFrame();
-    }
-
-    function _seek(where) {
-      var isPlaying = !!timeoutId;
-
-      if (isPlaying) {
-        pause();
-      }
-
-      if (typeof where === 'number') {
-        where = Math.min(1, where / duration);
-      } else if (where === '<<') {
-        var _pauseElapsedTime;
-
-        where = Math.max(0, ((_pauseElapsedTime = pauseElapsedTime) !== null && _pauseElapsedTime !== void 0 ? _pauseElapsedTime : 0) / (duration * 1000) - 0.1);
-      } else if (where === '>>') {
-        var _pauseElapsedTime2;
-
-        where = Math.min(1, ((_pauseElapsedTime2 = pauseElapsedTime) !== null && _pauseElapsedTime2 !== void 0 ? _pauseElapsedTime2 : 0) / (duration * 1000) + 0.1);
-      } else if (typeof where === 'string') {
-        if (where[where.length - 1] === '%') {
-          where = parseFloat(where.substring(0, where.length - 1)) / 100;
-        } else {
-          where = Math.min(1, parseNpt(where) / duration);
-        }
-      }
-
-      var targetTime = duration * where * 1000;
-
-      if (targetTime < elapsedVirtualTime) {
-        feed('\x1bc'); // reset terminal
-
-        nextFrameIndex = 0;
-        elapsedVirtualTime = 0;
-      }
-
-      var frame = frames[nextFrameIndex];
-
-      while (frame && frame[0] * 1000 < targetTime) {
-        feed(frame[1]);
-        elapsedVirtualTime = frame[0] * 1000;
-        frame = frames[++nextFrameIndex];
-      }
-
-      pauseElapsedTime = targetTime;
-
-      if (isPlaying) {
-        resume();
-      }
-    }
-
-    function _getPoster(time) {
-      var posterTime = time * 1000;
-      var poster = [];
-      var nextFrameIndex = 0;
-      var frame = frames[0];
-
-      while (frame && frame[0] * 1000 < posterTime) {
-        poster.push(frame[1]);
-        frame = frames[++nextFrameIndex];
-      }
-
-      return poster;
-    }
-
-    return {
-      init: function () {
-        var _init = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee() {
-          return regenerator.wrap(function _callee$(_context) {
-            while (1) {
-              switch (_context.prev = _context.next) {
-                case 0:
-                  _context.next = 2;
-                  return load();
-
-                case 2:
-                  return _context.abrupt("return", {
-                    cols: cols,
-                    rows: rows,
-                    duration: duration
-                  });
-
-                case 3:
-                case "end":
-                  return _context.stop();
-              }
-            }
-          }, _callee);
-        }));
-
-        function init() {
-          return _init.apply(this, arguments);
-        }
-
-        return init;
-      }(),
-      start: function () {
-        var _start = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee2(startAt) {
-          return regenerator.wrap(function _callee2$(_context2) {
-            while (1) {
-              switch (_context2.prev = _context2.next) {
-                case 0:
-                  _context2.next = 2;
-                  return load();
-
-                case 2:
-                  _seek(startAt !== null && startAt !== void 0 ? startAt : 0);
-
-                  resume();
-
-                case 4:
-                case "end":
-                  return _context2.stop();
-              }
-            }
-          }, _callee2);
-        }));
-
-        function start(_x) {
-          return _start.apply(this, arguments);
-        }
-
-        return start;
-      }(),
-      stop: function stop() {
-        clearTimeout(timeoutId);
-      },
-      pauseOrResume: function pauseOrResume() {
-        if (timeoutId) {
-          pause();
-          return false;
-        } else {
-          resume();
-          return true;
-        }
-      },
-      seek: function seek(where) {
-        return _seek(where);
-      },
-      getPoster: function getPoster(t) {
-        return _getPoster(t);
-      },
-      getCurrentTime: function getCurrentTime() {
-        if (timeoutId) {
-          return (now() - startTime) / 1000;
-        } else {
-          var _pauseElapsedTime3;
-
-          return ((_pauseElapsedTime3 = pauseElapsedTime) !== null && _pauseElapsedTime3 !== void 0 ? _pauseElapsedTime3 : 0) / 1000;
-        }
-      }
-    };
-  }
-
-  function parseAsciicast(json) {
-    try {
-      return parseAsciicastV2(json);
-    } catch (_error) {
-      // not a v2 format - let's try parsing as v1
-      return parseAsciicastV1(json);
-    }
-  }
-
-  function parseAsciicastV1(json) {
-    var asciicast = JSON.parse(json);
-    var time = 0;
-    var frames = new Stream(asciicast.stdout).map(function (e) {
-      time += e[0];
-      return [time, e[1]];
-    });
-    return {
-      cols: asciicast.width,
-      rows: asciicast.height,
-      frames: frames
-    };
-  }
-
-  function parseAsciicastV2(jsonl) {
-    var lines = jsonl.split('\n');
-    var header = JSON.parse(lines[0]);
-
-    if (header.version !== 2) {
-      throw 'not asciicast v2 format';
-    }
-
-    var frames = new Stream(lines).drop(1).filter(function (l) {
-      return l[0] === '[';
-    }).map(function (l) {
-      return JSON.parse(l);
-    }).filter(function (e) {
-      return e[1] === 'o';
-    }).map(function (e) {
-      return [e[0], e[2]];
-    });
-    return {
-      cols: header.width,
-      rows: header.height,
-      idleTimeLimit: header.idle_time_limit,
-      frames: frames
-    };
-  }
-
-  function prepareFrames(frames, idleTimeLimit) {
-    return Array.from(limitFrames(batchFrames(frames), idleTimeLimit));
-  }
-
-  function batchFrames(frames) {
-    var maxFrameTime = 1.0 / 60;
-    var prevFrame;
-    return frames.transform(function (emit) {
-      var ic = 0;
-      var oc = 0;
-      return {
-        step: function step(frame) {
-          ic++;
-
-          if (prevFrame === undefined) {
-            prevFrame = frame;
-            return;
-          }
-
-          if (frame[0] - prevFrame[0] < maxFrameTime) {
-            prevFrame[1] += frame[1];
-          } else {
-            emit(prevFrame);
-            prevFrame = frame;
-            oc++;
-          }
-        },
-        flush: function flush() {
-          if (prevFrame !== undefined) {
-            emit(prevFrame);
-            oc++;
-          }
-
-          console.debug("batched ".concat(ic, " frames to ").concat(oc, " frames"));
-        }
-      };
-    });
-  }
-
-  function limitFrames(frames) {
-    var idleTimeLimit = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Infinity;
-    var prevT = 0;
-    var shift = 0;
-    return frames.map(function (e) {
-      var delay = e[0] - prevT;
-      var cappedDelay = Math.min(delay, idleTimeLimit);
-      shift += delay - cappedDelay;
-      prevT = e[0];
-      return [e[0] - shift, e[1]];
-    });
-  }
-
-  function test(kind, callbacks, opts) {
-    if (kind == 'random') {
-      return random(callbacks);
-    } else if (kind == 'clock') {
-      return clock(callbacks, opts);
-    }
-  }
-
-  function random(_ref) {
-    var feed = _ref.feed,
-        setTimeout = _ref.setTimeout;
-    var base = ' '.charCodeAt(0);
-    var range = '~'.charCodeAt(0) - base;
-    var timeoutId;
-
-    var schedule = function schedule() {
-      var t = Math.pow(5, Math.random() * 4);
-      timeoutId = setTimeout(print, t);
-    };
-
-    var print = function print() {
-      schedule();
-      var char = String.fromCharCode(base + Math.floor(Math.random() * range));
-      feed(char);
-    };
-
-    return function () {
-      schedule();
-      return function () {
-        return clearInterval(timeoutId);
-      };
-    };
-  }
-
-  function clock(_ref2, _ref3) {
-    var feed = _ref2.feed;
-    var _ref3$cols = _ref3.cols,
-        cols = _ref3$cols === void 0 ? 5 : _ref3$cols,
-        _ref3$rows = _ref3.rows,
-        rows = _ref3$rows === void 0 ? 1 : _ref3$rows;
-    var middleRow = Math.floor(rows / 2);
-    var leftPad = Math.floor(cols / 2) - 2;
-    var intervalId;
-    return {
-      cols: cols,
-      rows: rows,
-      duration: 24 * 60,
-      start: function start() {
-        setTimeout(function () {
-          feed("\x1B[?25l\x1B[1m\x1B[".concat(middleRow, "B"));
-        }, 0);
-        intervalId = setInterval(function () {
-          var d = new Date();
-          var h = d.getHours();
-          var m = d.getMinutes();
-          feed('\r');
-
-          for (var i = 0; i < leftPad; i++) {
-            feed(' ');
-          }
-
-          feed('\x1b[32m');
-
-          if (h < 10) {
-            feed('0');
-          }
-
-          feed("".concat(h));
-          feed('\x1b[39;5m:\x1b[25;35m');
-
-          if (m < 10) {
-            feed('0');
-          }
-
-          feed("".concat(m));
-        }, 1000);
-      },
-      stop: function stop() {
-        clearInterval(intervalId);
-      },
-      getCurrentTime: function getCurrentTime() {
-        var d = new Date();
-        return d.getHours() * 60 + d.getMinutes();
-      }
-    };
-  }
-
-  function websocket(url, _ref) {
-    var feed = _ref.feed;
-    var socket;
-    return {
-      start: function start() {
-        socket = new WebSocket(url);
-
-        socket.onmessage = function (event) {
-          var data = JSON.parse(event.data);
-
-          if (data[1] == 'o') {
-            feed(data[2]);
-          }
-        };
-      },
-      stop: function stop() {
-        socket.close();
-      }
-    };
-  }
-
   function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
 
   function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
@@ -3231,6 +2598,7 @@ var AsciinemaPlayer = (function (exports) {
   var vt = loadVt(); // trigger async loading of wasm
 
   var Core = /*#__PURE__*/function () {
+    // public
     function Core(driverFn, opts) {
       var _opts$speed;
 
@@ -3264,7 +2632,7 @@ var AsciinemaPlayer = (function (exports) {
               _this$cols,
               _this$rows;
 
-          var playCount, feed, now, setTimeout, setInterval, onFinish;
+          var playCount, feed, now, setTimeout, setInterval, reset, onFinish;
           return regenerator.wrap(function _callee$(_context) {
             while (1) {
               switch (_context.prev = _context.next) {
@@ -3281,6 +2649,10 @@ var AsciinemaPlayer = (function (exports) {
                     return window.setInterval(f, t / _this.speed);
                   };
 
+                  reset = function reset(cols, rows) {
+                    _this.resetVt(cols, rows);
+                  };
+
                   onFinish = function onFinish() {
                     playCount++;
 
@@ -3295,12 +2667,18 @@ var AsciinemaPlayer = (function (exports) {
                     }
                   };
 
+                  _context.next = 9;
+                  return vt;
+
+                case 9:
+                  this.wasm = _context.sent;
                   this.driver = this.driverFn({
                     feed: feed,
                     now: now,
                     setTimeout: setTimeout,
                     setInterval: setInterval,
-                    onFinish: onFinish
+                    onFinish: onFinish,
+                    reset: reset
                   }, {
                     cols: this.cols,
                     rows: this.rows,
@@ -3323,10 +2701,10 @@ var AsciinemaPlayer = (function (exports) {
 
                   _context.t0 = !!this.driver.pauseOrResume;
                   _context.t1 = !!this.driver.seek;
-                  _context.next = 16;
+                  _context.next = 20;
                   return this.renderPoster();
 
-                case 16:
+                case 20:
                   _context.t2 = _context.sent;
                   return _context.abrupt("return", {
                     isPausable: _context.t0,
@@ -3334,7 +2712,7 @@ var AsciinemaPlayer = (function (exports) {
                     poster: _context.t2
                   });
 
-                case 18:
+                case 22:
                 case "end":
                   return _context.stop();
               }
@@ -3707,10 +3085,9 @@ var AsciinemaPlayer = (function (exports) {
                   this.rows = (_this$rows2 = this.rows) !== null && _this$rows2 !== void 0 ? _this$rows2 : meta.rows;
 
                 case 7:
-                  _context7.next = 9;
-                  return this.initializeVt();
+                  this.ensureVt();
 
-                case 9:
+                case 8:
                 case "end":
                   return _context7.stop();
               }
@@ -3725,108 +3102,86 @@ var AsciinemaPlayer = (function (exports) {
         return doInitializeDriver;
       }()
     }, {
+      key: "ensureVt",
+      value: function ensureVt() {
+        var _this$cols3, _this$rows3;
+
+        var cols = (_this$cols3 = this.cols) !== null && _this$cols3 !== void 0 ? _this$cols3 : 80;
+        var rows = (_this$rows3 = this.rows) !== null && _this$rows3 !== void 0 ? _this$rows3 : 24;
+
+        if (this.vt !== undefined && this.vt.cols === cols && this.vt.rows === rows) {
+          return;
+        }
+
+        this.initializeVt(cols, rows);
+      }
+    }, {
+      key: "resetVt",
+      value: function resetVt(cols, rows) {
+        this.cols = cols;
+        this.rows = rows;
+        this.initializeVt(cols, rows);
+      }
+    }, {
       key: "initializeVt",
+      value: function initializeVt(cols, rows) {
+        this.vt = this.wasm.create(cols, rows);
+        this.vt.cols = cols;
+        this.vt.rows = rows;
+        this.changedLines.clear();
+
+        for (var i = 0; i < rows; i++) {
+          this.changedLines.add(i);
+        }
+
+        if (typeof this.onSize === 'function') {
+          this.onSize(cols, rows);
+        }
+      }
+    }, {
+      key: "renderPoster",
       value: function () {
-        var _initializeVt = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee8() {
-          var _this$cols3, _this$rows3;
+        var _renderPoster = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee8() {
+          var _this3 = this;
 
-          var cols, rows, _yield$vt, create, i;
-
+          var poster, cursor, lines, i;
           return regenerator.wrap(function _callee8$(_context8) {
             while (1) {
               switch (_context8.prev = _context8.next) {
                 case 0:
-                  cols = (_this$cols3 = this.cols) !== null && _this$cols3 !== void 0 ? _this$cols3 : 80;
-                  rows = (_this$rows3 = this.rows) !== null && _this$rows3 !== void 0 ? _this$rows3 : 24;
-
-                  if (!(this.vt !== undefined && this.vt.cols === cols && this.vt.rows === rows)) {
-                    _context8.next = 4;
+                  if (this.poster) {
+                    _context8.next = 2;
                     break;
                   }
 
                   return _context8.abrupt("return");
 
-                case 4:
-                  _context8.next = 6;
-                  return vt;
-
-                case 6:
-                  _yield$vt = _context8.sent;
-                  create = _yield$vt.create;
-                  this.vt = create(cols, rows);
-                  this.vt.cols = cols;
-                  this.vt.rows = rows;
-                  this.changedLines.clear();
-
-                  for (i = 0; i < rows; i++) {
-                    this.changedLines.add(i);
-                  }
-
-                  if (typeof this.onSize === 'function') {
-                    this.onSize(cols, rows);
-                  }
-
-                case 14:
-                case "end":
-                  return _context8.stop();
-              }
-            }
-          }, _callee8, this);
-        }));
-
-        function initializeVt() {
-          return _initializeVt.apply(this, arguments);
-        }
-
-        return initializeVt;
-      }()
-    }, {
-      key: "renderPoster",
-      value: function () {
-        var _renderPoster = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee9() {
-          var _this3 = this;
-
-          var poster, cursor, lines, i;
-          return regenerator.wrap(function _callee9$(_context9) {
-            while (1) {
-              switch (_context9.prev = _context9.next) {
-                case 0:
-                  if (this.poster) {
-                    _context9.next = 2;
-                    break;
-                  }
-
-                  return _context9.abrupt("return");
-
                 case 2:
-                  _context9.next = 4;
-                  return this.initializeVt();
-
-                case 4:
+                  this.ensureVt();
                   poster = [];
 
                   if (!(this.poster.substring(0, 16) == "data:text/plain,")) {
-                    _context9.next = 9;
+                    _context8.next = 8;
                     break;
                   }
 
                   poster = [this.poster.substring(16)];
-                  _context9.next = 13;
+                  _context8.next = 12;
                   break;
 
-                case 9:
+                case 8:
                   if (!(this.poster.substring(0, 4) == 'npt:' && typeof this.driver.getPoster === 'function')) {
-                    _context9.next = 13;
+                    _context8.next = 12;
                     break;
                   }
 
-                  _context9.next = 12;
+                  _context8.next = 11;
                   return this.initializeDriver();
 
-                case 12:
+                case 11:
                   poster = this.driver.getPoster(this.parseNptPoster(this.poster));
 
-                case 13:
+                case 12:
                   poster.forEach(function (text) {
                     return _this3.vt.feed(text);
                   });
@@ -3844,17 +3199,17 @@ var AsciinemaPlayer = (function (exports) {
                   this.vt.feed('\x1bc'); // reset vt
 
                   this.cursor = undefined;
-                  return _context9.abrupt("return", {
+                  return _context8.abrupt("return", {
                     cursor: cursor,
                     lines: lines
                   });
 
-                case 20:
+                case 19:
                 case "end":
-                  return _context9.stop();
+                  return _context8.stop();
               }
             }
-          }, _callee9, this);
+          }, _callee8, this);
         }));
 
         function renderPoster() {
@@ -3867,51 +3222,6 @@ var AsciinemaPlayer = (function (exports) {
       key: "parseNptPoster",
       value: function parseNptPoster(poster) {
         return parseNpt(poster.substring(4));
-      }
-    }], [{
-      key: "build",
-      value: // public
-      function build(src, opts) {
-        if (typeof src === 'string') {
-          if (src.substring(0, 5) == 'ws://' || src.substring(0, 6) == 'wss://') {
-            src = {
-              driver: 'websocket',
-              url: src
-            };
-          } else if (src.substring(0, 7) == 'test://') {
-            src = {
-              driver: 'test',
-              kind: src.substring(7)
-            };
-          } else {
-            src = {
-              driver: 'asciicast',
-              url: src
-            };
-          }
-        }
-
-        var drv;
-
-        if (typeof src === 'function') {
-          drv = src;
-        } else if (src.driver == 'asciicast') {
-          drv = function drv(callbacks, opts) {
-            return asciicast(src.url, callbacks, opts);
-          };
-        } else if (src.driver == 'websocket') {
-          drv = function drv(callbacks, opts) {
-            return websocket(src.url, callbacks);
-          };
-        } else if (src.driver == 'test') {
-          drv = function drv(callbacks, opts) {
-            return test(src.kind, callbacks, opts);
-          };
-        } else {
-          throw "unsupported driver: ".concat(JSON.stringify(src));
-        }
-
-        return new Core(drv, opts);
       }
     }]);
 
@@ -4373,7 +3683,7 @@ var AsciinemaPlayer = (function (exports) {
       return state.rows || 24;
     };
 
-    var core = Core.build(props.src, {
+    var core = new Core(props.driverFn, {
       cols: props.cols,
       rows: props.rows,
       loop: props.loop,
@@ -4650,8 +3960,6 @@ var AsciinemaPlayer = (function (exports) {
     };
 
     var onKeyPress = function onKeyPress(e) {
-      console.debug(e);
-
       if (e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) {
         return;
       }
@@ -4906,6 +4214,931 @@ var AsciinemaPlayer = (function (exports) {
 
   delegateEvents(["keydown", "mousemove"]);
 
+  // Efficient array transformations without intermediate array objects.
+  // Inspired by Clojure's transducers and Elixir's streams.
+  var Stream = /*#__PURE__*/function (_Symbol$iterator) {
+    function Stream(input, xfs) {
+      _classCallCheck(this, Stream);
+
+      this.input = input;
+      this.xfs = xfs !== null && xfs !== void 0 ? xfs : [];
+    }
+
+    _createClass(Stream, [{
+      key: "map",
+      value: function map(f) {
+        return this.transform(Map$1(f));
+      }
+    }, {
+      key: "flatMap",
+      value: function flatMap(f) {
+        return this.transform(FlatMap(f));
+      }
+    }, {
+      key: "filter",
+      value: function filter(f) {
+        return this.transform(Filter(f));
+      }
+    }, {
+      key: "take",
+      value: function take(n) {
+        return this.transform(Take(n));
+      }
+    }, {
+      key: "drop",
+      value: function drop(n) {
+        return this.transform(Drop(n));
+      }
+    }, {
+      key: "transform",
+      value: function transform(f) {
+        return new Stream(this.input, this.xfs.concat([f]));
+      }
+    }, {
+      key: "toArray",
+      value: function toArray() {
+        return Array.from(this);
+      }
+    }, {
+      key: _Symbol$iterator,
+      value: function value() {
+        var _this = this;
+
+        var i = 0;
+        var v = 0;
+        var values = [];
+        var flushed = false;
+        var xf = compose(this.xfs, function (val) {
+          return values.push(val);
+        });
+        return {
+          next: function next() {
+            if (v === values.length) {
+              values = [];
+              v = 0;
+            }
+
+            while (values.length === 0 && i < _this.input.length) {
+              xf.step(_this.input[i++]);
+            }
+
+            if (values.length === 0 && !flushed) {
+              xf.flush();
+              flushed = true;
+            }
+
+            if (values.length > 0) {
+              return {
+                done: false,
+                value: values[v++]
+              };
+            } else {
+              return {
+                done: true
+              };
+            }
+          }
+        };
+      }
+    }]);
+
+    return Stream;
+  }(Symbol.iterator);
+
+  function Map$1(f) {
+    return function (emit) {
+      return function (input) {
+        emit(f(input));
+      };
+    };
+  }
+
+  function FlatMap(f) {
+    return function (emit) {
+      return function (input) {
+        f(input).forEach(emit);
+      };
+    };
+  }
+
+  function Filter(f) {
+    return function (emit) {
+      return function (input) {
+        if (f(input)) {
+          emit(input);
+        }
+      };
+    };
+  }
+
+  function Take(n) {
+    var c = 0;
+    return function (emit) {
+      return function (input) {
+        if (c < n) {
+          emit(input);
+        }
+
+        c += 1;
+      };
+    };
+  }
+
+  function Drop(n) {
+    var c = 0;
+    return function (emit) {
+      return function (input) {
+        c += 1;
+
+        if (c > n) {
+          emit(input);
+        }
+      };
+    };
+  }
+
+  function compose(xfs, push) {
+    return xfs.reverse().reduce(function (next, curr) {
+      var xf = toXf(curr(next.step));
+      return {
+        step: xf.step,
+        flush: function flush() {
+          xf.flush();
+          next.flush();
+        }
+      };
+    }, toXf(push));
+  }
+
+  function toXf(xf) {
+    if (typeof xf === 'function') {
+      return {
+        step: xf,
+        flush: function flush() {}
+      };
+    } else {
+      return xf;
+    }
+  }
+
+  function asciicast(_ref, _ref2, _ref3) {
+    var url = _ref.url;
+    var feed = _ref2.feed,
+        now = _ref2.now,
+        setTimeout = _ref2.setTimeout,
+        onFinish = _ref2.onFinish;
+    var idleTimeLimit = _ref3.idleTimeLimit;
+    var cols;
+    var rows;
+    var frames;
+    var duration;
+    var timeoutId;
+    var nextFrameIndex = 0;
+    var elapsedVirtualTime = 0;
+    var startTime;
+    var pauseElapsedTime;
+
+    function load() {
+      return _load.apply(this, arguments);
+    }
+
+    function _load() {
+      _load = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee3() {
+        var res, _asciicast;
+
+        return regenerator.wrap(function _callee3$(_context3) {
+          while (1) {
+            switch (_context3.prev = _context3.next) {
+              case 0:
+                if (frames) {
+                  _context3.next = 13;
+                  break;
+                }
+
+                _context3.next = 3;
+                return fetch(url);
+
+              case 3:
+                res = _context3.sent;
+                _context3.t0 = parseAsciicast;
+                _context3.next = 7;
+                return res.text();
+
+              case 7:
+                _context3.t1 = _context3.sent;
+                _asciicast = (0, _context3.t0)(_context3.t1);
+                cols = _asciicast.cols;
+                rows = _asciicast.rows;
+                frames = prepareFrames(_asciicast.frames, idleTimeLimit !== null && idleTimeLimit !== void 0 ? idleTimeLimit : _asciicast.idleTimeLimit);
+                duration = frames[frames.length - 1][0];
+
+              case 13:
+              case "end":
+                return _context3.stop();
+            }
+          }
+        }, _callee3);
+      }));
+      return _load.apply(this, arguments);
+    }
+
+    function scheduleNextFrame() {
+      var nextFrame = frames[nextFrameIndex];
+
+      if (nextFrame) {
+        var t = nextFrame[0] * 1000;
+        var elapsedWallTime = now() - startTime;
+        var timeout = t - elapsedWallTime;
+
+        if (timeout < 0) {
+          timeout = 0;
+        }
+
+        timeoutId = setTimeout(runFrame, timeout);
+      } else {
+        timeoutId = null;
+        pauseElapsedTime = duration * 1000;
+        onFinish();
+      }
+    }
+
+    function runFrame() {
+      var frame = frames[nextFrameIndex];
+      var elapsedWallTime;
+
+      do {
+        feed(frame[1]);
+        elapsedVirtualTime = frame[0] * 1000;
+        frame = frames[++nextFrameIndex];
+        elapsedWallTime = now() - startTime;
+      } while (frame && elapsedWallTime > frame[0] * 1000);
+
+      scheduleNextFrame();
+    }
+
+    function pause() {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+      pauseElapsedTime = now() - startTime;
+    }
+
+    function resume() {
+      startTime = now() - pauseElapsedTime;
+      pauseElapsedTime = null;
+      scheduleNextFrame();
+    }
+
+    function _seek(where) {
+      var isPlaying = !!timeoutId;
+
+      if (isPlaying) {
+        pause();
+      }
+
+      if (typeof where === 'number') {
+        where = Math.min(1, where / duration);
+      } else if (where === '<<') {
+        var _pauseElapsedTime;
+
+        where = Math.max(0, ((_pauseElapsedTime = pauseElapsedTime) !== null && _pauseElapsedTime !== void 0 ? _pauseElapsedTime : 0) / (duration * 1000) - 0.1);
+      } else if (where === '>>') {
+        var _pauseElapsedTime2;
+
+        where = Math.min(1, ((_pauseElapsedTime2 = pauseElapsedTime) !== null && _pauseElapsedTime2 !== void 0 ? _pauseElapsedTime2 : 0) / (duration * 1000) + 0.1);
+      } else if (typeof where === 'string') {
+        if (where[where.length - 1] === '%') {
+          where = parseFloat(where.substring(0, where.length - 1)) / 100;
+        } else {
+          where = Math.min(1, parseNpt(where) / duration);
+        }
+      }
+
+      var targetTime = duration * where * 1000;
+
+      if (targetTime < elapsedVirtualTime) {
+        feed('\x1bc'); // reset terminal
+
+        nextFrameIndex = 0;
+        elapsedVirtualTime = 0;
+      }
+
+      var frame = frames[nextFrameIndex];
+
+      while (frame && frame[0] * 1000 < targetTime) {
+        feed(frame[1]);
+        elapsedVirtualTime = frame[0] * 1000;
+        frame = frames[++nextFrameIndex];
+      }
+
+      pauseElapsedTime = targetTime;
+
+      if (isPlaying) {
+        resume();
+      }
+    }
+
+    function _getPoster(time) {
+      var posterTime = time * 1000;
+      var poster = [];
+      var nextFrameIndex = 0;
+      var frame = frames[0];
+
+      while (frame && frame[0] * 1000 < posterTime) {
+        poster.push(frame[1]);
+        frame = frames[++nextFrameIndex];
+      }
+
+      return poster;
+    }
+
+    return {
+      init: function () {
+        var _init = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee() {
+          return regenerator.wrap(function _callee$(_context) {
+            while (1) {
+              switch (_context.prev = _context.next) {
+                case 0:
+                  _context.next = 2;
+                  return load();
+
+                case 2:
+                  return _context.abrupt("return", {
+                    cols: cols,
+                    rows: rows,
+                    duration: duration
+                  });
+
+                case 3:
+                case "end":
+                  return _context.stop();
+              }
+            }
+          }, _callee);
+        }));
+
+        function init() {
+          return _init.apply(this, arguments);
+        }
+
+        return init;
+      }(),
+      start: function () {
+        var _start = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee2(startAt) {
+          return regenerator.wrap(function _callee2$(_context2) {
+            while (1) {
+              switch (_context2.prev = _context2.next) {
+                case 0:
+                  _context2.next = 2;
+                  return load();
+
+                case 2:
+                  _seek(startAt !== null && startAt !== void 0 ? startAt : 0);
+
+                  resume();
+
+                case 4:
+                case "end":
+                  return _context2.stop();
+              }
+            }
+          }, _callee2);
+        }));
+
+        function start(_x) {
+          return _start.apply(this, arguments);
+        }
+
+        return start;
+      }(),
+      stop: function stop() {
+        clearTimeout(timeoutId);
+      },
+      pauseOrResume: function pauseOrResume() {
+        if (timeoutId) {
+          pause();
+          return false;
+        } else {
+          resume();
+          return true;
+        }
+      },
+      seek: function seek(where) {
+        return _seek(where);
+      },
+      getPoster: function getPoster(t) {
+        return _getPoster(t);
+      },
+      getCurrentTime: function getCurrentTime() {
+        if (timeoutId) {
+          return (now() - startTime) / 1000;
+        } else {
+          var _pauseElapsedTime3;
+
+          return ((_pauseElapsedTime3 = pauseElapsedTime) !== null && _pauseElapsedTime3 !== void 0 ? _pauseElapsedTime3 : 0) / 1000;
+        }
+      }
+    };
+  }
+
+  function parseAsciicast(json) {
+    try {
+      return parseAsciicastV2(json);
+    } catch (_error) {
+      // not a v2 format - let's try parsing as v1
+      return parseAsciicastV1(json);
+    }
+  }
+
+  function parseAsciicastV1(json) {
+    var asciicast = JSON.parse(json);
+    var time = 0;
+    var frames = new Stream(asciicast.stdout).map(function (e) {
+      time += e[0];
+      return [time, e[1]];
+    });
+    return {
+      cols: asciicast.width,
+      rows: asciicast.height,
+      frames: frames
+    };
+  }
+
+  function parseAsciicastV2(jsonl) {
+    var lines = jsonl.split('\n');
+    var header = JSON.parse(lines[0]);
+
+    if (header.version !== 2) {
+      throw 'not asciicast v2 format';
+    }
+
+    var frames = new Stream(lines).drop(1).filter(function (l) {
+      return l[0] === '[';
+    }).map(function (l) {
+      return JSON.parse(l);
+    }).filter(function (e) {
+      return e[1] === 'o';
+    }).map(function (e) {
+      return [e[0], e[2]];
+    });
+    return {
+      cols: header.width,
+      rows: header.height,
+      idleTimeLimit: header.idle_time_limit,
+      frames: frames
+    };
+  }
+
+  function prepareFrames(frames, idleTimeLimit) {
+    return Array.from(limitFrames(batchFrames(frames), idleTimeLimit));
+  }
+
+  function batchFrames(frames) {
+    var maxFrameTime = 1.0 / 60;
+    var prevFrame;
+    return frames.transform(function (emit) {
+      var ic = 0;
+      var oc = 0;
+      return {
+        step: function step(frame) {
+          ic++;
+
+          if (prevFrame === undefined) {
+            prevFrame = frame;
+            return;
+          }
+
+          if (frame[0] - prevFrame[0] < maxFrameTime) {
+            prevFrame[1] += frame[1];
+          } else {
+            emit(prevFrame);
+            prevFrame = frame;
+            oc++;
+          }
+        },
+        flush: function flush() {
+          if (prevFrame !== undefined) {
+            emit(prevFrame);
+            oc++;
+          }
+
+          console.debug("batched ".concat(ic, " frames to ").concat(oc, " frames"));
+        }
+      };
+    });
+  }
+
+  function limitFrames(frames) {
+    var idleTimeLimit = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Infinity;
+    var prevT = 0;
+    var shift = 0;
+    return frames.map(function (e) {
+      var delay = e[0] - prevT;
+      var cappedDelay = Math.min(delay, idleTimeLimit);
+      shift += delay - cappedDelay;
+      prevT = e[0];
+      return [e[0] - shift, e[1]];
+    });
+  }
+
+  function test(_ref, callbacks, opts) {
+    var kind = _ref.kind;
+
+    if (kind == 'random') {
+      return random(callbacks);
+    } else if (kind == 'clock') {
+      return clock(callbacks, opts);
+    }
+  }
+
+  function random(_ref2) {
+    var feed = _ref2.feed,
+        setTimeout = _ref2.setTimeout;
+    var base = ' '.charCodeAt(0);
+    var range = '~'.charCodeAt(0) - base;
+    var timeoutId;
+
+    var schedule = function schedule() {
+      var t = Math.pow(5, Math.random() * 4);
+      timeoutId = setTimeout(print, t);
+    };
+
+    var print = function print() {
+      schedule();
+      var char = String.fromCharCode(base + Math.floor(Math.random() * range));
+      feed(char);
+    };
+
+    return function () {
+      schedule();
+      return function () {
+        return clearInterval(timeoutId);
+      };
+    };
+  }
+
+  function clock(_ref3, _ref4) {
+    var feed = _ref3.feed;
+    var _ref4$cols = _ref4.cols,
+        cols = _ref4$cols === void 0 ? 5 : _ref4$cols,
+        _ref4$rows = _ref4.rows,
+        rows = _ref4$rows === void 0 ? 1 : _ref4$rows;
+    var middleRow = Math.floor(rows / 2);
+    var leftPad = Math.floor(cols / 2) - 2;
+    var intervalId;
+    return {
+      cols: cols,
+      rows: rows,
+      duration: 24 * 60,
+      start: function start() {
+        setTimeout(function () {
+          feed("\x1B[?25l\x1B[1m\x1B[".concat(middleRow, "B"));
+        }, 0);
+        intervalId = setInterval(function () {
+          var d = new Date();
+          var h = d.getHours();
+          var m = d.getMinutes();
+          feed('\r');
+
+          for (var i = 0; i < leftPad; i++) {
+            feed(' ');
+          }
+
+          feed('\x1b[32m');
+
+          if (h < 10) {
+            feed('0');
+          }
+
+          feed("".concat(h));
+          feed('\x1b[39;5m:\x1b[25;35m');
+
+          if (m < 10) {
+            feed('0');
+          }
+
+          feed("".concat(m));
+        }, 1000);
+      },
+      stop: function stop() {
+        clearInterval(intervalId);
+      },
+      getCurrentTime: function getCurrentTime() {
+        var d = new Date();
+        return d.getHours() * 60 + d.getMinutes();
+      }
+    };
+  }
+
+  var Queue = /*#__PURE__*/function () {
+    function Queue() {
+      _classCallCheck(this, Queue);
+
+      this.first = undefined;
+      this.last = undefined;
+      this.onPush = undefined;
+    }
+
+    _createClass(Queue, [{
+      key: "push",
+      value: function push(item) {
+        var node = {
+          item: item
+        };
+
+        if (this.last !== undefined) {
+          this.last = this.last.next = node;
+        } else {
+          this.last = this.first = node;
+        }
+
+        if (this.onPush) {
+          this.onPush(this.pop());
+          this.onPush = undefined;
+        }
+      }
+    }, {
+      key: "pop",
+      value: function pop() {
+        var node = this.first;
+
+        if (node !== undefined) {
+          this.first = node.next;
+
+          if (this.first === undefined) {
+            this.last = undefined;
+          }
+
+          return node.item;
+        } else {
+          var thiz = this;
+          return new Promise(function (resolve) {
+            thiz.onPush = resolve;
+          });
+        }
+      }
+    }, {
+      key: "forEach",
+      value: function forEach(f) {
+        var _this = this;
+
+        var stop = false;
+
+        var go = /*#__PURE__*/function () {
+          var _ref = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee() {
+            var item;
+            return regenerator.wrap(function _callee$(_context) {
+              while (1) {
+                switch (_context.prev = _context.next) {
+                  case 0:
+                    item = _this.pop();
+
+                  case 1:
+                    if (!(_typeof(item) !== 'object' || typeof item.then !== 'function')) {
+                      _context.next = 9;
+                      break;
+                    }
+
+                    if (!stop) {
+                      _context.next = 4;
+                      break;
+                    }
+
+                    return _context.abrupt("return");
+
+                  case 4:
+                    _context.next = 6;
+                    return f(item);
+
+                  case 6:
+                    item = _this.pop();
+                    _context.next = 1;
+                    break;
+
+                  case 9:
+                    _context.next = 11;
+                    return item;
+
+                  case 11:
+                    item = _context.sent;
+
+                    if (!stop) {
+                      _context.next = 14;
+                      break;
+                    }
+
+                    return _context.abrupt("return");
+
+                  case 14:
+                    _context.next = 16;
+                    return f(item);
+
+                  case 16:
+                    go();
+
+                  case 17:
+                  case "end":
+                    return _context.stop();
+                }
+              }
+            }, _callee);
+          }));
+
+          return function go() {
+            return _ref.apply(this, arguments);
+          };
+        }();
+
+        setTimeout(go, 0);
+        return function () {
+          stop = true;
+        };
+      }
+    }]);
+
+    return Queue;
+  }();
+
+  function buffer(feed, bufferTime) {
+    var events = new Queue();
+    var startTime;
+    var stopFeeding = events.forEach( /*#__PURE__*/function () {
+      var _ref = _asyncToGenerator( /*#__PURE__*/regenerator.mark(function _callee(event) {
+        var elapsedWallTime, elapsedStreamTime;
+        return regenerator.wrap(function _callee$(_context) {
+          while (1) {
+            switch (_context.prev = _context.next) {
+              case 0:
+                elapsedWallTime = now() - startTime;
+                elapsedStreamTime = (event[0] + bufferTime) * 1000;
+
+                if (!(elapsedStreamTime > elapsedWallTime)) {
+                  _context.next = 5;
+                  break;
+                }
+
+                _context.next = 5;
+                return sleep(elapsedStreamTime - elapsedWallTime);
+
+              case 5:
+                feed(event[2]);
+
+              case 6:
+              case "end":
+                return _context.stop();
+            }
+          }
+        }, _callee);
+      }));
+
+      return function (_x) {
+        return _ref.apply(this, arguments);
+      };
+    }());
+    return {
+      pushEvent: function pushEvent(event) {
+        if (startTime === undefined) {
+          startTime = now();
+        }
+
+        if (event[1] != 'o') return;
+        events.push(event);
+      },
+      pushText: function pushText(text) {
+        if (startTime === undefined) {
+          startTime = now();
+        }
+
+        var time = (now() - startTime) / 1000;
+        events.push([time, 'o', text]);
+      },
+      stop: function stop() {
+        stopFeeding();
+      }
+    };
+  }
+
+  function now() {
+    return new Date().getTime();
+  }
+
+  function sleep(t) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, t);
+    });
+  }
+
+  function websocket(_ref, _ref2) {
+    var url = _ref.url,
+        _ref$bufferTime = _ref.bufferTime,
+        bufferTime = _ref$bufferTime === void 0 ? 0 : _ref$bufferTime;
+    var feed = _ref2.feed,
+        reset = _ref2.reset;
+    var utfDecoder = new TextDecoder();
+    var socket;
+    var buf;
+    var reconnectDelay = 250;
+    var _stop = false;
+
+    function initBuffer() {
+      if (buf !== undefined) buf.stop();
+      buf = buffer(feed, bufferTime);
+    }
+
+    function connect() {
+      socket = new WebSocket(url);
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = function () {
+        console.debug('websocket: opened');
+        initBuffer();
+        reconnectDelay = 250;
+      };
+
+      socket.onmessage = function (event) {
+        if (typeof event.data === 'string') {
+          var e = JSON.parse(event.data);
+
+          if (e.cols !== undefined || e.width !== undefined) {
+            var _e$cols, _e$rows;
+
+            initBuffer();
+            reset((_e$cols = e.cols) !== null && _e$cols !== void 0 ? _e$cols : e.width, (_e$rows = e.rows) !== null && _e$rows !== void 0 ? _e$rows : e.height);
+          } else {
+            buf.pushEvent(e);
+          }
+        } else {
+          buf.pushText(utfDecoder.decode(event.data));
+        }
+      };
+
+      socket.onclose = function (event) {
+        if (_stop || event.wasClean) {
+          console.debug('websocket: closed');
+        } else {
+          console.debug("websocket: unclean close, reconnecting in ".concat(reconnectDelay, "..."));
+          setTimeout(connect, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 5000);
+        }
+      };
+    }
+
+    return {
+      start: function start() {
+        connect();
+      },
+      stop: function stop() {
+        _stop = true;
+        if (buf !== undefined) buf.stop();
+        if (socket !== undefined) socket.close();
+      }
+    };
+  }
+
+  function eventsource(_ref, _ref2) {
+    var url = _ref.url,
+        _ref$bufferTime = _ref.bufferTime,
+        bufferTime = _ref$bufferTime === void 0 ? 0 : _ref$bufferTime;
+    var feed = _ref2.feed,
+        reset = _ref2.reset;
+    var es;
+    var buf;
+
+    function initBuffer() {
+      if (buf !== undefined) buf.stop();
+      buf = buffer(feed, bufferTime);
+    }
+
+    return {
+      start: function start() {
+        es = new EventSource(url);
+        es.addEventListener('open', function () {
+          console.debug('eventsource: opened');
+          initBuffer();
+        });
+        es.addEventListener('message', function (event) {
+          var e = JSON.parse(event.data);
+
+          if (e.cols !== undefined || e.width !== undefined) {
+            var _e$cols, _e$rows;
+
+            initBuffer();
+            reset((_e$cols = e.cols) !== null && _e$cols !== void 0 ? _e$cols : e.width, (_e$rows = e.rows) !== null && _e$rows !== void 0 ? _e$rows : e.height);
+          } else {
+            buf.pushEvent(e);
+          }
+        });
+        es.addEventListener('done', function () {
+          console.debug('eventsource: closed');
+          es.close();
+        });
+      },
+      stop: function stop() {
+        if (buf !== undefined) buf.stop();
+        if (es !== undefined) es.close();
+      }
+    };
+  }
+
   function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) { symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); } keys.push.apply(keys, symbols); } return keys; }
 
   function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
@@ -4914,7 +5147,7 @@ var AsciinemaPlayer = (function (exports) {
     var opts = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
 
     var props = _objectSpread({
-      src: src
+      driverFn: getDriver(src)
     }, opts);
 
     var el;
@@ -4926,6 +5159,40 @@ var AsciinemaPlayer = (function (exports) {
       el: el,
       dispose: dispose
     };
+  }
+
+  function getDriver(src) {
+    if (typeof src === 'string') {
+      if (src.substring(0, 5) == 'ws://' || src.substring(0, 6) == 'wss://') {
+        src = {
+          driver: 'websocket',
+          url: src
+        };
+      } else if (src.substring(0, 7) == 'test://') {
+        src = {
+          driver: 'test',
+          kind: src.substring(7)
+        };
+      } else {
+        src = {
+          driver: 'asciicast',
+          url: src
+        };
+      }
+    }
+
+    var drivers = new Map([['asciicast', asciicast], ['websocket', websocket], ['eventsource', eventsource], ['test', test]]);
+
+    if (typeof src === 'function') {
+      return src;
+    } else if (drivers.has(src.driver)) {
+      var driver = drivers.get(src.driver);
+      return function (callbacks, opts) {
+        return driver(src, callbacks, opts);
+      };
+    } else {
+      throw "unsupported driver: ".concat(JSON.stringify(src));
+    }
   }
 
   exports.create = create;
